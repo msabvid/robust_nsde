@@ -249,6 +249,7 @@ if __name__ == '__main__':
     S0 = 1
     rate = 0.025 # risk-free rate
     model = Net_LV(dim=1, timegrid=timegrid, strikes_call=strikes_call, n_layers=args.n_layers, vNetWidth=args.vNetWidth, device=device, n_maturities=n_maturities, maturities=maturities, rate=rate)
+    model.to(device)
     model.apply(init_weights)
     
     # Monte Carlo test data
