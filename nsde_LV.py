@@ -59,8 +59,8 @@ class Net_LV(nn.Module):
 
         exotic_option_price = torch.zeros_like(S_old)
 
+        # we keep a running_max for Lookback option
         running_max = S_old
-        p=0.5
         
         # Solve for S_t (Euler)   
         for i in range(1, ind_T+1):
@@ -79,7 +79,6 @@ class Net_LV(nn.Module):
             path[:,i] = S_old.detach().squeeze(1)
             
             running_max = torch.max(running_max, S_old)
-
             if i in self.maturities:
                 ind_maturity = self.maturities.index(i)
                 for idx, strike in enumerate(self.strikes_call):
@@ -110,13 +109,10 @@ def train_nsde(model, z_test, config):
     model.apply(init_weights)
     params_SDE = list(model.diffusion.parameters())#+list(model.driftV.parameters()) + list(model.diffusionV.parameters()) + [model.rho, model.v0]
     
-    log_file = "log_train.txt"
-    with open(log_file, "w") as f:
-        f.write("MSE,exotic,lambda\n")
-
     n_epochs = config["n_epochs"]
     T = config["maturities"][-1]
-    # we take the target data that we are interested in
+    
+    # we take the target data that we are interested in.
     target_mat_T = torch.tensor(config["target_data"][:len(config["maturities"]),:len(config["strikes_call"])], device=device).float()
     
     optimizer_SDE = torch.optim.Adam(params_SDE,lr=0.001)
