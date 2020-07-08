@@ -64,9 +64,15 @@ class Net_timegrid(nn.Module):
         y = self.net_t[idnet](x)
         return y
 
-    def freeze(self):
-        for p in self.net_t.parameters():
-            p.requires_grad=False
+    def freeze(self, *args):
+        if not args:
+            for p in self.net_t.parameters():
+                p.requires_grad=False
+        else:
+            self.unfreeze()
+            for idx in args:
+                for p in self.net_t[idx].parameters():
+                    p.requires_grad_(False)
 
     def unfreeze(self, *args):
         if not args:
