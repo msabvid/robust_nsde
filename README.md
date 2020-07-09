@@ -1,6 +1,6 @@
 # Robust Pricing and Hedging via Neural SDEs
 
-Code of numerical experiments in
+Code of numerical experiments in this [paper](https://arxiv.org/abs/2007.04154).
 
       @misc{gierjatowicz2020robust,
       title={Robust pricing and hedging via neural SDEs},
