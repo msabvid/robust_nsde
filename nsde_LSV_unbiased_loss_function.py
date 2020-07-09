@@ -150,7 +150,7 @@ def train_nsde(model, z_test, config):
             time_forward = time.time() - init_time
 
             itercount += 1
-            MSE = torch.mean(torch.abs(pred1-target_mat_T)*torch.abs(pred2-target_mat_T))
+            MSE = torch.mean((pred1-target_mat_T)*(pred2-target_mat_T))
             loss = MSE
             init_time = time.time()
             loss.backward()
@@ -172,8 +172,8 @@ def train_nsde(model, z_test, config):
         MSE = loss_fn(pred, target_mat_T)
         loss_val=torch.sqrt(MSE)
         print('epoch={}, loss={:.4f}'.format(epoch, loss_val.item()))
-        with open("log_train.txt","a") as f:
-            f.write('epoch={}, loss={:.4f}\n'.format(epoch, loss_val.item()))
+        with open("log_eval_unbiased.txt","a") as f:
+            f.write('{},{:.4f}\n'.format(epoch, loss_val.item()))
         
         # save checkpooint
         if loss_val < loss_val_best:
@@ -221,7 +221,7 @@ if __name__ == '__main__':
     print(strikes_call)
     n_steps=96
     timegrid = torch.linspace(0,1,n_steps+1).to(device) 
-    maturities = range(16, 65, 16)
+    maturities = range(16, 33, 16)
     n_maturities = len(maturities)
     
     # Neural SDE
