@@ -30,11 +30,11 @@ Resulting target IV surface:
 
 ## Scripts
 
-* `nsde_LV.py`: Neural SDE for Local Volatility model.
+* `nsde_LV.py`: Calibration to target prices of Neural SDE using Local Volatility model.
       
       python nsde_LV.py --device 0 --vNetWidth 50 --n_layers 20
 
-* `nsde_LSV.py`: Neural SDE for Local Stochastic Volatility model:
+* `nsde_LSV.py`: Calibration to target prices of Neural SDE using Local Stochastic Volatility model, where \sigma^S, b^V and \sigma^V are feed-forward neural networks:
 ![LSV](/images/Neural_SDE.png)
       
       python nsde_LV.py --device 0 --vNetWidth 50 --n_layers 20
