@@ -141,8 +141,16 @@ def train_nsde(model, z_test, config):
             model.control_variate_vanilla.unfreeze() 
             model.control_variate_exotics.unfreeze() 
             model.diffusion.freeze()
+            model.driftV.freeze()
+            model.diffusionV.freeze()
+            model.v0.requires_grad_(False)
+            model.rho.requires_grad_(False)
         else:
             model.diffusion.unfreeze()
+            model.driftV.unfreeze()
+            model.diffusionV.unfreeze()
+            model.v0.requires_grad_(True)
+            model.rho.requires_grad_(True)
             model.control_variate_vanilla.freeze()
             model.control_variate_exotics.freeze()
         

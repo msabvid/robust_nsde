@@ -141,8 +141,16 @@ def train_nsde(model, z_test, config):
             model.control_variate_vanilla.unfreeze() 
             model.control_variate_exotics.unfreeze() 
             model.diffusion.freeze()
+            model.driftV.freeze()
+            model.diffusionV.freeze()
+            model.v0.requires_grad_(False)
+            model.rho.requires_grad_(False)
         else:
             model.diffusion.unfreeze()
+            model.driftV.unfreeze()
+            model.diffusionV.unfreeze()
+            model.v0.requires_grad_(True)
+            model.rho.requires_grad_(True)
             model.control_variate_vanilla.freeze()
             model.control_variate_exotics.freeze()
         
@@ -202,8 +210,8 @@ def train_nsde(model, z_test, config):
         MSE = loss_fn(pred, target_mat_T)
         loss_val=torch.sqrt(MSE)
         print('epoch={}, loss={:.4f}'.format(epoch, loss_val.item()))
-        with open("log_train.txt","a") as f:
-            f.write('epoch={}, loss={:.4f}\n'.format(epoch, loss_val.item()))
+        with open("log_eval.txt","a") as f:
+            f.write('{},{:.4e}\n'.format(epoch, loss_val.item()))
         
         # save checkpooint
         if loss_val < loss_val_best:
@@ -252,7 +260,7 @@ if __name__ == '__main__':
     print(strikes_call)
     n_steps=96
     timegrid = torch.linspace(0,1,n_steps+1).to(device) 
-    maturities = range(16, 65, 16)
+    maturities = range(16, 33, 16)
     n_maturities = len(maturities)
     
     # Neural SDE

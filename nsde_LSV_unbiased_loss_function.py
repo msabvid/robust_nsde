@@ -173,7 +173,7 @@ def train_nsde(model, z_test, config):
         loss_val=torch.sqrt(MSE)
         print('epoch={}, loss={:.4f}'.format(epoch, loss_val.item()))
         with open("log_eval_unbiased.txt","a") as f:
-            f.write('{},{:.4f}\n'.format(epoch, loss_val.item()))
+            f.write('{},{:.4e}\n'.format(epoch, loss_val.item()))
         
         # save checkpooint
         if loss_val < loss_val_best:
