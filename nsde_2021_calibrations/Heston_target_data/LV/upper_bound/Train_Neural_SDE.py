@@ -406,7 +406,7 @@ def train_models(args):
 
                 if epoch%2==1 and epoch<250:
                     MSE = loss_fn(torch.mul(pred,vega),torch.mul(target_mat_T,vega))
-                    loss= 0.5*exotic_prc_no_cv + LAMBDA_2 * MSE + c_2/2 * MSE**2  # we use exotic price without control variate in optimising payoff bound 
+                    loss= -0.5*exotic_prc_no_cv + LAMBDA_2 * MSE + c_2/2 * MSE**2  # we use exotic price without control variate in optimising payoff bound 
                     init_time = time.time()
                     itercount_2 +=1
                     loss.backward()
@@ -651,7 +651,7 @@ def train_models(args):
 if __name__ == '__main__':
     
     parser = argparse.ArgumentParser()
-    parser.add_argument('--device', type=int, default=5)
+    parser.add_argument('--device', type=int, default=6)
     parser.add_argument('--LAMBDA', type=int, default=5000)
     parser.add_argument('--c', type=int, default=10000)
 
