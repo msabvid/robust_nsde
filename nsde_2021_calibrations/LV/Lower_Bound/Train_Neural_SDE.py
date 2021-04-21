@@ -305,7 +305,7 @@ def train_nsde(model,z_val,z_val_var,z_test,z_test_var,config):
                 time_forward = time.time() - init_time
                 pred = torch.reshape(pv_h,(n_maturities,n_strikes))
                 MSE = loss_fn(torch.mul(pred,inverse_vega),torch.mul(target_mat_T,inverse_vega))
-                loss= 0*pe_h + LAMBDA * MSE + c/2 * MSE**2  
+                loss= pe_h + LAMBDA * MSE + c/2 * MSE**2  
                 init_time = time.time()
                 itercount +=1
                 loss.backward()
@@ -507,7 +507,7 @@ if __name__ == '__main__':
     MC_samples_price=1000000 # this is generated once and used to validate trained model after each epoch
     MC_samples_var=400000
     parser = argparse.ArgumentParser()
-    parser.add_argument('--device', type=int, default=4)
+    parser.add_argument('--device', type=int, default=3)
     parser.add_argument('--LAMBDA', type=int, default=10000)
     parser.add_argument('--c', type=int, default=20000)
     parser.add_argument('--MC_samples_price',type=int,default=MC_samples_price)

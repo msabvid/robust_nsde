@@ -15,19 +15,19 @@ from py_vollib.black_scholes import black_scholes as price_black_scholes
 
 from networks import *
          
-class Net_LV(nn.Module):
+class Net_LSV(nn.Module):
     """
-    Calibration of LV model to vanilla prices at different maturities
+    Calibration of LSV model to vanilla prices at different maturities
     """
     def __init__(self, timegrid, strikes_call, device, n_maturities):
         
-        super(Net_LV, self).__init__()
+        super(Net_LSV, self).__init__()
         self.timegrid = timegrid
         self.device = device
         self.strikes_call = strikes_call
         
         # initialise price diffusion neural network (different neural network for each maturity)
-        self.S_vol =  Net_timegrid(dim=2, nOut=1, n_layers=3, vNetWidth=100, n_maturities=n_maturities, activation_output="softplus")
+        self.S_vol =  Net_timegrid(dim=3, nOut=1, n_layers=3, vNetWidth=100, n_maturities=n_maturities, activation_output="softplus")
         
         # initialise vanilla hedging strategy neural networks 
         """
@@ -35,6 +35,14 @@ class Net_LV(nn.Module):
         is used to simulate hedging strategy (from time 0) for vanilla options at the final maturity
         """
         self.vanilla_hedge = Net_timegrid(dim=2, nOut=len(strikes_call), n_layers=2, vNetWidth=20, n_maturities=n_maturities, activation_output="softplus")
+
+        # initialise stochastic volatility drift and diffusion neural networks
+        self.V_drift = Net_timegrid(dim=1, nOut=1, n_layers=2, vNetWidth=20, n_maturities=n_maturities)
+        self.V_vol = Net_timegrid(dim=1, nOut=1, n_layers=2, vNetWidth=20, n_maturities=n_maturities, activation_output="softplus")
+        
+        # initialise stochastic volatility correlation and initial value parameters
+        self.v0 = torch.nn.Parameter(torch.rand(1)*0.1)
+        self.rho = torch.nn.Parameter(2*torch.rand(1)-1)
         
         # initialise exotic hedging strategy neural networks 
         """
@@ -67,16 +75,24 @@ class Net_LV(nn.Module):
         martingale_test = torch.zeros(1, device=self.device)
         put_atm = torch.zeros(1, device=self.device)
         call_atm = torch.zeros(1, device=self.device)
+        V_old = ones * torch.sigmoid(self.v0)*0.5
+        rho = torch.tanh(self.rho)
         running_max = S_old # initialisation of running_max for calculation of lookback price
         
+        with open("rho_and_v0.txt","a") as f:
+            f.write("{:.4f},{:.4f}\n".format(rho.item(),V_old[0,0].item()))
+
+
         for i in range(1, ind_T+1):
             idx_net = (i-1)//period_length # assume maturities are evenly distributed, i.e. 0, 16, 32, ..., 96
             t = torch.ones_like(S_old) * self.timegrid[i-1]
             h = self.timegrid[i]-self.timegrid[i-1]   
             dW = (torch.sqrt(h) * z[:,i-1]).reshape(MC_samples,1)
+            zz = torch.randn_like(dW)
+            dB = rho * dW + torch.sqrt(1-rho**2)*torch.sqrt(h)*zz
             
             Slog_old=torch.log(S_old)
-            price_diffusion = self.S_vol.forward_idx(idx_net, torch.cat([t,Slog_old],1))
+            price_diffusion = self.S_vol.forward_idx(idx_net, torch.cat([t,Slog_old,V_old],1))
             
             # Evaluate vanilla hedging strategies at particular timestep
             for mat in range(n_maturities):
@@ -84,6 +100,7 @@ class Net_LV(nn.Module):
                     cv_vanilla_fwd[:,:,mat] = self.vanilla_hedge.forward_idx(mat, torch.cat([t,Slog_old.detach()],1))
            
             exotic_hedge = self.exotic_hedge.forward_idx(idx_net, torch.cat([t,Slog_old.detach()],1))
+            V_new = V_old + self.V_drift.forward_idx(idx_net,V_old).reshape(MC_samples,1)*h + self.V_vol.forward_idx(idx_net,V_old).reshape(MC_samples,1)*dB
             price_diffusion_const = price_diffusion.detach()
 
             drift =  (rate-0.5*(price_diffusion**2).reshape(MC_samples,1))
@@ -111,6 +128,7 @@ class Net_LV(nn.Module):
             
             # Update values of asset prc processes for next Tamed Euler step
             S_old = S_new
+            V_old = torch.clamp(V_new,0)
                   
             # Evaluate vanilla option prices and variances of price estimate if timestep corresponds to maturity  
             if int(i) in maturities: 
@@ -167,7 +185,7 @@ def train_nsde(model,z_val,z_val_var,z_test,z_test_var,config):
     S0 = config["initial_price"]
     n_strikes = len(K)
 
-    params_SDE = list(model.S_vol.parameters()) 
+    params_SDE = list(model.S_vol.parameters()) + [model.rho, model.v0] + list(model.V_drift.parameters())+list(model.V_vol.parameters())
     params_vanilla_hedge = list(model.vanilla_hedge.parameters())
     params_exotic_hedge = list(model.exotic_hedge.parameters())
 
@@ -279,6 +297,8 @@ def train_nsde(model,z_val,z_val_var,z_test,z_test_var,config):
             if epoch%10==1: 
                 model.vanilla_hedge.unfreeze()
                 model.S_vol.freeze()
+                model.V_drift.freeze()
+                model.V_vol.freeze()
                 model.exotic_hedge.freeze()
                 init_time = time.time()
                 batch_x1 = torch.randn(batch_size_hedge, batch_steps, device=device)
@@ -297,6 +317,8 @@ def train_nsde(model,z_val,z_val_var,z_test,z_test_var,config):
             # Train Neural Networks Corresponding to SDE Parameters 
             if epoch%10!=1 and epoch%10!=2: 
                 model.S_vol.unfreeze()
+                model.V_drift.unfreeze()
+                model.V_vol.unfreeze()
                 model.vanilla_hedge.freeze()
                 model.exotic_hedge.freeze()
                 init_time = time.time()
@@ -322,6 +344,8 @@ def train_nsde(model,z_val,z_val_var,z_test,z_test_var,config):
             # Train Neural Network Corresponding to Exotic Hedging Strategy
             if epoch%10==2: 
                 model.S_vol.freeze()
+                model.V_drift.freeze()
+                model.V_vol.freeze()
                 model.vanilla_hedge.freeze()
                 model.exotic_hedge.unfreeze()
                 init_time = time.time()
@@ -507,7 +531,7 @@ if __name__ == '__main__':
     MC_samples_price=1000000 # this is generated once and used to validate trained model after each epoch
     MC_samples_var=400000
     parser = argparse.ArgumentParser()
-    parser.add_argument('--device', type=int, default=4)
+    parser.add_argument('--device', type=int, default=5)
     parser.add_argument('--LAMBDA', type=int, default=10000)
     parser.add_argument('--c', type=int, default=20000)
     parser.add_argument('--MC_samples_price',type=int,default=MC_samples_price)
@@ -535,7 +559,7 @@ if __name__ == '__main__':
     rate = 0.0 # risk-free rate
     n_steps = period_length*n_maturities
     timegrid = torch.linspace(0,0.5,n_steps+1).to(device)
-    model = Net_LV(timegrid=timegrid, strikes_call=strikes_call, device=device, n_maturities=n_maturities)
+    model = Net_LSV(timegrid=timegrid, strikes_call=strikes_call, device=device, n_maturities=n_maturities)
     model.to(device)
     model.apply(init_weights)
     
