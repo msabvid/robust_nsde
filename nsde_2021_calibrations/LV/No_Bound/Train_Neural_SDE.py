@@ -73,7 +73,8 @@ class Net_LV(nn.Module):
             idx_net = (i-1)//period_length # assume maturities are evenly distributed, i.e. 0, 16, 32, ..., 96
             t = torch.ones_like(S_old) * self.timegrid[i-1]
             h = self.timegrid[i]-self.timegrid[i-1]   
-            dW = (torch.sqrt(h) * z[:,i-1]).reshape(MC_samples,1)           
+            dW = (torch.sqrt(h) * z[:,i-1]).reshape(MC_samples,1)
+            
             Slog_old=torch.log(S_old)
             price_diffusion = self.S_vol.forward_idx(idx_net, torch.cat([t,Slog_old],1))
             
@@ -318,7 +319,7 @@ def train_nsde(model,z_val,z_val_var,z_test,z_test_var,config):
                 init_time = time.time()
                 itercount +=1
                 loss.backward()
-                if itercount%20==0:
+                if itercount%50==0:
                     LAMBDA += c*MSE.detach() if LAMBDA<1e6 else LAMBDA
                     c = 2*c if c<1e10 else c
                 time_backward = time.time() - init_time
@@ -510,16 +511,16 @@ def train_nsde(model,z_val,z_val_var,z_test,z_test_var,config):
                          "target_mat_T": target_mat_T}
             torch.save(checkpoint, filename)
                   
-    return model_best     
+    return model_best   
 
 if __name__ == '__main__':
 
     MC_samples_price=1000000 # this is generated once and used to validate trained model after each epoch
     MC_samples_var=400000
     parser = argparse.ArgumentParser()
-    parser.add_argument('--device', type=int, default=3)
-    parser.add_argument('--LAMBDA', type=int, default=5000)
-    parser.add_argument('--c', type=int, default=10000)
+    parser.add_argument('--device', type=int, default=4)
+    parser.add_argument('--LAMBDA', type=int, default=10000)
+    parser.add_argument('--c', type=int, default=20000)
     parser.add_argument('--MC_samples_price',type=int,default=MC_samples_price)
     parser.add_argument('--MC_samples_var',type=int,default=MC_samples_var)
     parser.add_argument('--lower_bound', action='store_true', default=False)
@@ -569,7 +570,7 @@ if __name__ == '__main__':
 
     CONFIG = {"batch_size":50000,
               "batch_size_hedge":10000,
-              "n_epochs":200,
+              "n_epochs":300,
               "initial_price":S0,
               "maturities":maturities,
               "learning_rate": 0.0001,

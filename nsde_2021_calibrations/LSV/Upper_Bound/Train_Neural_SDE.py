@@ -340,7 +340,7 @@ def train_nsde(model,z_val,z_val_var,z_test,z_test_var,config):
                 init_time = time.time()
                 itercount +=1
                 loss.backward()
-                if itercount%20==0:
+                if itercount%30==0:
                     LAMBDA += c*MSE.detach() if LAMBDA<1e6 else LAMBDA
                     c = 2*c if c<1e10 else c
                 time_backward = time.time() - init_time
@@ -541,7 +541,7 @@ if __name__ == '__main__':
     MC_samples_price=1000000 # this is generated once and used to validate trained model after each epoch
     MC_samples_var=400000
     parser = argparse.ArgumentParser()
-    parser.add_argument('--device', type=int, default=4)
+    parser.add_argument('--device', type=int, default=5)
     parser.add_argument('--LAMBDA', type=int, default=10000)
     parser.add_argument('--c', type=int, default=20000)
     parser.add_argument('--MC_samples_price',type=int,default=MC_samples_price)
