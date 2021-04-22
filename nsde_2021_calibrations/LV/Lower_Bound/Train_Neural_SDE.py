@@ -27,7 +27,7 @@ class Net_LV(nn.Module):
         self.strikes_call = strikes_call
         
         # initialise price diffusion neural network (different neural network for each maturity)
-        self.S_vol =  Net_timegrid(dim=2, nOut=1, n_layers=3, vNetWidth=100, n_maturities=n_maturities, activation_output="softplus")
+        self.S_vol =  Net_timegrid(dim=2, nOut=1, n_layers=3, vNetWidth=200, n_maturities=n_maturities, activation_output="softplus")
         
         # initialise vanilla hedging strategy neural networks 
         """
@@ -73,8 +73,7 @@ class Net_LV(nn.Module):
             idx_net = (i-1)//period_length # assume maturities are evenly distributed, i.e. 0, 16, 32, ..., 96
             t = torch.ones_like(S_old) * self.timegrid[i-1]
             h = self.timegrid[i]-self.timegrid[i-1]   
-            dW = (torch.sqrt(h) * z[:,i-1]).reshape(MC_samples,1)
-            
+            dW = (torch.sqrt(h) * z[:,i-1]).reshape(MC_samples,1)           
             Slog_old=torch.log(S_old)
             price_diffusion = self.S_vol.forward_idx(idx_net, torch.cat([t,Slog_old],1))
             
@@ -184,7 +183,17 @@ def train_nsde(model,z_val,z_val_var,z_test,z_test_var,config):
     # Number of paths used for validation
     MC_samples_price = args.MC_samples_price
     MC_samples_var = args.MC_samples_var
-       
+    
+    if args.no_bound:
+        type_bound = "no_bound"
+        opt_constant = 0
+    elif args.lower_bound:
+        type_bound = "lower_bound"
+        opt_constant = 1
+    else:
+        type_bound = "upper_bound"
+        opt_constant = -1
+        
     for epoch in range(n_epochs):
         
         # evaluate model at initialisation and save error, exotic price and other statistics at initialisation
@@ -228,7 +237,7 @@ def train_nsde(model,z_val,z_val_var,z_test,z_test_var,config):
                 
             with torch.no_grad():
                 pv_h, _,pe_u,pe_h,_, _,martingale_test, put_atm, call_atm, put_call_parity_error = model(S0, rate, z_val, MC_samples_price, batch_steps, period_length=period_length,n_maturities=n_maturities)
-                _, var_pv_h_val,_,_,pe_var_u, pe_var_h,_,_,_,_ = model(S0, rate, z_val_var,MC_samples_var, batch_steps, period_length=period_length,n_maturities=n_maturities)                 
+                _, var_pv_h,_,_,pe_var_u, pe_var_h,_,_,_,_ = model(S0, rate, z_val_var,MC_samples_var, batch_steps, period_length=period_length,n_maturities=n_maturities)                 
             pred=torch.reshape(pv_h,(n_maturities,n_strikes))
             print("Model Option Prices at Initialisation:",pred)
             print("Target Option Call Prices:", target_mat_T )
@@ -243,7 +252,7 @@ def train_nsde(model,z_val,z_val_var,z_test,z_test_var,config):
                 f.write("{:.4f},{:.4f}\n".format(pe_h.item(),pe_u.item() ))
             
             with open("Sum_Variances__Vanilla_Options_Variance_Exotic_Hedged_Variance_Exotic_Unhedged.txt","a") as f:
-                f.write("{:.4f},{:.4f},{:.4f}\n".format(torch.sum(var_pv_h_val).item(),pe_var_h.item(),pe_var_u.item() ))
+                f.write("{:.4f},{:.4f},{:.4f}\n".format(torch.sum(var_pv_h).item(),pe_var_h.item(),pe_var_u.item() ))
             
             with open("Loss_MSE_Loss_REL_Loss_Vega_Weighted.txt","a") as f:
                 f.write("{:.4f},{:.4f},{:.4f}\n".format(loss_val.item(),loss_val_rel.item(),loss_vega.item() ))
@@ -254,7 +263,7 @@ def train_nsde(model,z_val,z_val_var,z_test,z_test_var,config):
             print('Validation Mean Square Error At Initialisation {}, loss={:.10f}'.format(itercount, loss_val.item()))
             print('Validation Relative Error At Initialisation {}, loss={:.10f}'.format(itercount, loss_val_rel.item()))
             print('Validation Iverse Vega Weighted MSE At Initialisation {}, loss={:.10f}'.format(itercount, loss_vega.item()))   
-            print('Sum of Variances of Vanilla Call Options At Initialisation:', torch.sum(var_pv_h_val))
+            print('Sum of Variances of Vanilla Call Options At Initialisation:', torch.sum(var_pv_h))
             print('Variance of Hedged Exotic Option At Initialisation:', pe_var_h)
             print('Variance of Unhedged Exotic Option At Initialisation:', pe_var_u)
             print('Price of Hedged Exotic Option At Initialisation:', pe_h)
@@ -305,7 +314,7 @@ def train_nsde(model,z_val,z_val_var,z_test,z_test_var,config):
                 time_forward = time.time() - init_time
                 pred = torch.reshape(pv_h,(n_maturities,n_strikes))
                 MSE = loss_fn(torch.mul(pred,inverse_vega),torch.mul(target_mat_T,inverse_vega))
-                loss= pe_h + LAMBDA * MSE + c/2 * MSE**2  
+                loss= opt_constant*pe_h + LAMBDA * MSE + c/2 * MSE**2  
                 init_time = time.time()
                 itercount +=1
                 loss.backward()
@@ -313,10 +322,10 @@ def train_nsde(model,z_val,z_val_var,z_test,z_test_var,config):
                     LAMBDA += c*MSE.detach() if LAMBDA<1e6 else LAMBDA
                     c = 2*c if c<1e10 else c
                 time_backward = time.time() - init_time
-                nn.utils.clip_grad_norm_(params_SDE, 1)
+                nn.utils.clip_grad_norm_(params_SDE, 5)
                 if (itercount % 20 == 0):
                     print('Training SDE Parameters')
-                    print('iteration {}, weighted_loss={:.4f}, time_forward={:.4f}, time_backward={:.4f}'.format(itercount,loss.item(), time_forward, time_backward))
+                    print('iteration {}, augmented_Lagrangian_loss={:.4f}, time_forward={:.4f}, time_backward={:.4f}'.format(itercount,loss.item(), time_forward, time_backward))
                 optimizer_SDE.step()
             
             # Train Neural Network Corresponding to Exotic Hedging Strategy
@@ -405,7 +414,7 @@ def train_nsde(model,z_val,z_val_var,z_test,z_test_var,config):
             best_IV_mean_error=iv_mean_error
             print('current_loss', loss_val)
             print('IV best error',iv_mean_error)
-            filename = "Neural_SDE_maturity{}.pth.tar".format(T)
+            filename = "Neural_SDE_{}_maturity_{}.pth.tar".format(type_bound,T)
             checkpoint = {"state_dict":model.state_dict(),
                          "T":T,
                          "pred":pred,
@@ -419,17 +428,18 @@ def train_nsde(model,z_val,z_val_var,z_test,z_test_var,config):
             torch.save(checkpoint, filename)
                 
         if  epoch==(n_epochs-1):
-            checkpoint_str= 'Neural_SDE_maturity'+str(T)+'.pth.tar'
+            checkpoint_str= 'Neural_SDE_'+type_bound+'_maturity_'+str(T)+'.pth.tar'
             checkpoint=torch.load(checkpoint_str)
             model.load_state_dict(checkpoint['state_dict'])
             model = model.to(device) 
-            filename = "Neural_SDE_test_maturity{}.pth.tar".format(T)
+            
+            filename = "Neural_SDE_{}_test_maturity_{}.pth.tar".format(type_bound,T)
 
             with torch.no_grad():
                 pv_h_test,_,pe_u_test, pe_h_test,_, _,martingale_test, put_atm, call_atm, put_call_parity_error = model(S0, rate, z_test, MC_samples_price, T, period_length=period_length,n_maturities=n_maturities)
-                _, var_pv_h_test,_,_, var_pv_u_test,var_pv_h_test, _,_,_,_ = model(S0, rate, z_test_var,  MC_samples_var, T, period_length=period_length,n_maturities=n_maturities)
+                _, var_pv_h_test,_,_, pe_var_u_test,pe_var_h_test, _,_,_,_ = model(S0, rate, z_test_var,  MC_samples_var, T, period_length=period_length,n_maturities=n_maturities)
             
-            pred=torch.reshape(pv_h,(n_maturities,n_strikes))
+            pred=torch.reshape(pv_h_test,(n_maturities,n_strikes))
             print("Model Option Prices:",pred)
             print("Target Option Call Prices:", target_mat_T )
         
@@ -456,8 +466,8 @@ def train_nsde(model,z_val,z_val_var,z_test,z_test_var,config):
             print('Validation Relative Error {}, loss={:.10f}'.format(itercount, loss_test_rel.item()))
             print('Validation Iverse Vega Weighted MSE {}, loss={:.10f}'.format(itercount, loss_vega.item()))   
             print('Sum of Variances of Vanilla Call Options:', torch.sum(var_pv_h_test))
-            print('Variance of Hedged Exotic Option:', var_pv_h_test)
-            print('Variance of Unhedged Exotic Option:', var_pv_u_test)
+            print('Variance of Hedged Exotic Option:', pe_var_h_test)
+            print('Variance of Unhedged Exotic Option:', pe_var_u_test)
             print('Price of Hedged Exotic Option:', pe_h_test)
             print('Price of Unhedged Exotic Option:', pe_u_test)
             print('Martingale Test:', martingale_test)
@@ -473,7 +483,7 @@ def train_nsde(model,z_val,z_val_var,z_test,z_test_var,config):
                     van_pred_temp = pred[idxt,::].cpu().numpy()
                     for idxx, (pred_temp, k) in enumerate(zip(van_pred_temp, K)):
                         try:
-                            iv_1[idxx] = implied_volatility(pred_temp,  S=S0, K=k, r=rate, t=t/(2*96), flag="c")
+                            iv[idxx] = implied_volatility(pred_temp,  S=S0, K=k, r=rate, t=t/(2*96), flag="c")
                         except:
                             pass
                     iv_out = torch.cat([iv_out,torch.from_numpy(iv).float().to(device).T],0)
@@ -485,9 +495,9 @@ def train_nsde(model,z_val,z_val_var,z_test,z_test_var,config):
             print('iv_target', iv_target_out)
             print('iv_mean_error_test', iv_mean_error)
             print('iv_infinity_error_test', iv_infinity_error)
-            save_file(iv_mean_error, strIVerror)
-            save_file(iv_infinity_error, strIVerror_infinity)
-            best_hedge_error = pe_var_h_test
+            with open("IV_Mean_Infinity_Errors.txt","a") as f:
+                f.write("{:.4f},{:.4f}\n".format(iv_mean_error.item(),iv_infinity_error.item())) 
+            
             checkpoint = {"state_dict":model.state_dict(),
                          "T":T,
                          "pred":pred,
@@ -500,18 +510,22 @@ def train_nsde(model,z_val,z_val_var,z_test,z_test_var,config):
                          "target_mat_T": target_mat_T}
             torch.save(checkpoint, filename)
                   
-    return model_best   
+    return model_best     
 
 if __name__ == '__main__':
 
     MC_samples_price=1000000 # this is generated once and used to validate trained model after each epoch
     MC_samples_var=400000
     parser = argparse.ArgumentParser()
-    parser.add_argument('--device', type=int, default=3)
-    parser.add_argument('--LAMBDA', type=int, default=10000)
-    parser.add_argument('--c', type=int, default=20000)
+    parser.add_argument('--device', type=int, default=4)
+    parser.add_argument('--LAMBDA', type=int, default=5000)
+    parser.add_argument('--c', type=int, default=10000)
     parser.add_argument('--MC_samples_price',type=int,default=MC_samples_price)
     parser.add_argument('--MC_samples_var',type=int,default=MC_samples_var)
+    parser.add_argument('--lower_bound', action='store_true', default=True)
+    parser.add_argument('--upper_bound', action='store_true', default=False)
+    parser.add_argument('--no_bound', action='store_true', default=False)
+    
     
     args = parser.parse_args()
 
@@ -558,7 +572,7 @@ if __name__ == '__main__':
               "n_epochs":200,
               "initial_price":S0,
               "maturities":maturities,
-              "learning_rate": 0.0005,
+              "learning_rate": 0.0001,
               "interest_rate":rate,
               "n_maturities":n_maturities,
               "strikes_call":strikes_call,
