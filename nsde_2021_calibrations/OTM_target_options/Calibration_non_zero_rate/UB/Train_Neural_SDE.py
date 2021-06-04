@@ -131,7 +131,7 @@ class Net_LSV(nn.Module):
                   
             # Evaluate vanilla option prices and variances of price estimate if timestep corresponds to maturity  
             if int(i) in maturities: 
-                dis_fact = torch.exp(-rate[i-1]*self.timegrid[(idx_net + 1)*period_length])
+                dis_fact = torch.exp(-mu[idx_net]*self.timegrid[(idx_net + 1)*period_length])
                 for idx, strike in enumerate(self.strikes):
                   if strike>S0:  
                       pv_h_temp = dis_fact*torch.clamp(S_old-strike,0).squeeze(1).detach()-cv_vanilla[:,idx,idx_net]
@@ -569,7 +569,7 @@ if __name__ == '__main__':
     MC_samples_price=1000000 # this is generated once and used to validate trained model after each epoch
     MC_samples_var=400000
     parser = argparse.ArgumentParser()
-    parser.add_argument('--device', type=int, default=3)
+    parser.add_argument('--device', type=int, default=7)
     parser.add_argument('--LAMBDA', type=int, default=10000)
     parser.add_argument('--c', type=int, default=20000)
     parser.add_argument('--MC_samples_price',type=int,default=MC_samples_price)
