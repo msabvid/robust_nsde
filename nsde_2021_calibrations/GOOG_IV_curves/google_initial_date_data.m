@@ -106,7 +106,7 @@ for i=1:length(maturities)
    plot_title = strcat('Maturity: T=', string(maturities(i)) , 'days, ',' Date:  ', string(GOOG_day(Iday(1))),'.', string(GOOG_month(Iday(1))),'.' ,string(GOOG_year(Iday(1))));
    save_string = strcat('Maturity',string(maturities(i)),'Date',string(GOOG_day(Iday(1))),string(GOOG_month(Iday(1))),string(GOOG_year(Iday(1))));
    title(plot_title);
-   saveas(gcf,save_string,'epsc');
+   saveas(gcf,save_string,'png');
    VOL(i,:)=vol_sorted;
    BID(i,:)=bid_sorted;
    ASK(i,:)=ask_sorted;
