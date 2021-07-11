@@ -151,18 +151,20 @@ for i=1:length(maturities)
        end   
    end
    strikes_sorted_unique = unique(strikes_sorted);
-   [~,iv_spaps] = spaps(strikes_sorted, iv_blend_sorted,0.00025);
+   [~,iv_spaps] = spaps(strikes_sorted, iv_blend_sorted,0.0005);
    IV(i,:)=iv_sorted;
+   hold off
    plot(strikes_sorted,iv_sorted, strikes_sorted,iv_blend_sorted)
    hold on
+   xline(GOOG_S0,'--b')
    plot(strikes_sorted_unique,iv_spaps,'--rs','LineWidth',2,...
                        'MarkerEdgeColor','k',...
                        'MarkerFaceColor','g',...
                        'MarkerSize',10)
-   xline(GOOG_S0,'--b')
+   
    xlabel('Strike')
    ylabel('Implied Vol.')
-   legend('IV Raw(Market)','IV Blend', 'IV Blend+Smooth','ATM','Location','north')
+   legend('IV Raw(Market)','IV Blend','ATM','IV Blend+Smooth','Location','Best')
    plot_title = strcat('Maturity: T=', string(maturities(i)) , 'days, ',' Date:  ', string(GOOG_day(Iday(1))),'.', string(GOOG_month(Iday(1))),'.' ,string(GOOG_year(Iday(1))));
    save_string = strcat('Date',string(GOOG_day(Iday(1))),string(GOOG_month(Iday(1))),string(GOOG_year(Iday(1))),'Maturity',string(maturities(i)));
    title(plot_title);
