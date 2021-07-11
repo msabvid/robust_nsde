@@ -153,20 +153,18 @@ for i=1:length(maturities)
        end   
    end
    strikes_sorted_unique = unique(strikes_sorted);
-   iv_blend_smooth=iv_blend_sorted;
-   [~,iv_spaps] = spaps(strikes_sorted, iv_blend_sorted,0.0005);
-   for k=1:length(iv_spaps)
-       [idx_strike,~]=find(strikes_sorted==strikes_sorted_unique(k));
-       iv_blend_smooth(idx_strike)=iv_spaps(k);
+   for i=1:length(iv_spaps)
+       [idx_strike,~]=find(strikes_sorted==strikes_sorted_unique(i));
+       iv_blend
    end    
+   [~,iv_spaps] = spaps(strikes_sorted, iv_blend_sorted,0.0005);
    IV(i,:)=iv_sorted;
    IV_blend(i,:)=iv_blend_sorted;
-   IV_blend_smooth(i,:)=iv_blend_smooth;
    hold off
    plot(strikes_sorted,iv_sorted, strikes_sorted,iv_blend_sorted)
    hold on
    xline(GOOG_S0,'--b')
-   plot(strikes_sorted,iv_blend_smooth,'--rs','LineWidth',2,...
+   plot(strikes_sorted_unique,iv_spaps,'--rs','LineWidth',2,...
                        'MarkerEdgeColor','k',...
                        'MarkerFaceColor','g',...
                        'MarkerSize',10)
