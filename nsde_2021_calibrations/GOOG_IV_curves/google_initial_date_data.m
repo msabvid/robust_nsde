@@ -161,7 +161,7 @@ for i=1:length(maturities)
                        'MarkerSize',10)
    xlabel('Strike')
    ylabel('Implied Vol.')
-   legend('Market IV Raw','Market IV blend', 'Market IV blend and smooth')
+   legend('IV Raw(Market)','IV Blend', 'IV Blend+Smooth','Location','north')
    plot_title = strcat('Maturity: T=', string(maturities(i)) , 'days, ',' Date:  ', string(GOOG_day(Iday(1))),'.', string(GOOG_month(Iday(1))),'.' ,string(GOOG_year(Iday(1))));
    save_string = strcat('Date',string(GOOG_day(Iday(1))),string(GOOG_month(Iday(1))),string(GOOG_year(Iday(1))),'Maturity',string(maturities(i)));
    title(plot_title);
