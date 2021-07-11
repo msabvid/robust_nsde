@@ -55,16 +55,16 @@ for i = 1:n
  [IV(i,:,:),IV_blend(i,:,:),IV_blend_smooth(i,:,:),VOL(i,:,:),K(i,:,:),Delta(i,:,:),ASK(i,:,:),BID(i,:,:)] = get_price_data(GOOG_cal_idx(i),GOOG_date,maturities(i,:),GOOG_S0(i),GOOG_mat,GOOG_IV,GOOG_VOL,GOOG_K,GOOG_BID,GOOG_ASK,GOOG_delta,number_strikes_for_each_maturity,GOOG_day,GOOG_month,GOOG_year,number_maturities_for_each_cal_day);
 end
 
-save('GOOG_data.mat')
-save('IV_target.mat','IV_blend_smooth')
-save('IV_raw.mat','IV')
-save('ASK_price.mat','ASK')
-save('BID_price.mat','BID')
-save('GOOG_S0.mat','GOOG_S0')
-save('strikes.mat','K')
-save('maturities.mat','maturities')
-save('rates.mat','rates')
-save('voltume.mat','VOL')
+save('GOOG_data.mat','-v7.3')
+save('IV_target.mat','IV_blend_smooth','-v7.3')
+save('IV_raw.mat','IV','-v7.3')
+save('ASK_price.mat','ASK','-v7.3')
+save('BID_price.mat','BID','-v7.3')
+save('GOOG_S0.mat','GOOG_S0','-v7.3')
+save('strikes.mat','K','-v7.3')
+save('maturities.mat','maturities','-v7.3')
+save('rates.mat','rates','-v7.3')
+save('voltume.mat','VOL','-v7.3')
 
 
 save('MyArray.mat','MyArray')
