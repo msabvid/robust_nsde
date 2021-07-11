@@ -16,7 +16,7 @@ GOOG_delta=data.delta(I);
 [I,~]=find(S(:,2)==121812);
 GOOG_Sday=S(I,1);
 GOOG_S=S(I,3);
-Day_idx=735342:1:(735342+29);
+Day_idx=735342:1:(735342+30);
 [GOOG_S0entry,GOOG_cal_days] = find(GOOG_Sday==Day_idx);
 GOOG_S0=GOOG_S(GOOG_S0entry);
 GOOG_cal_idx=GOOG_cal_days+735342-1;
@@ -40,15 +40,38 @@ BID=zeros(n,number_maturities_for_each_cal_day,number_strikes_for_each_maturity)
 
 for i = 1:n
     [maturities(i,:),rates(i)]= get_data_under_30days(GOOG_cal_idx(i),GOOG_date,GOOG_mat,GOOG_rate,number_maturities_for_each_cal_day);
-    [IV(i,:,:),IV_blend(i,:,:),IV_blend_smooth(i,:,:),VOL(i,:,:),K(i,:,:),Delta(i,:,:),ASK(i,:,:),BID(i,:,:)] = get_price_data(GOOG_cal_idx(i),GOOG_date,maturities(i,:),GOOG_S0(i),GOOG_mat,GOOG_IV,GOOG_VOL,GOOG_K,GOOG_BID,GOOG_ASK,GOOG_delta,number_strikes_for_each_maturity,GOOG_day,GOOG_month,GOOG_year,number_maturities_for_each_cal_day);
 end
 
+GOOG_timegrids=zeros(n,max(max(maturities)));
+GOOG_timegrids(1,1:length(GOOG_cal_days))=GOOG_cal_days;
+
+for i=2:n
+    Day_idx_temp=735342+GOOG_cal_days(i):1:(735342++GOOG_cal_days(i)+maturities(i,number_maturities_for_each_cal_day));
+    [~,GOOG_cal_days_temp] = find(GOOG_Sday==Day_idx_temp);
+    GOOG_timegrids(i,1:length(GOOG_cal_days_temp))=GOOG_cal_days_temp;
+end
+
+for i = 1:n
+ [IV(i,:,:),IV_blend(i,:,:),IV_blend_smooth(i,:,:),VOL(i,:,:),K(i,:,:),Delta(i,:,:),ASK(i,:,:),BID(i,:,:)] = get_price_data(GOOG_cal_idx(i),GOOG_date,maturities(i,:),GOOG_S0(i),GOOG_mat,GOOG_IV,GOOG_VOL,GOOG_K,GOOG_BID,GOOG_ASK,GOOG_delta,number_strikes_for_each_maturity,GOOG_day,GOOG_month,GOOG_year,number_maturities_for_each_cal_day);
+end
+
+save('GOOG_data.mat')
+save('IV_target.mat',IV_blend_smooth)
+save('IV_raw.mat',IV)
+save('ASK_price.mat',ASK)
+save('BID_price.mat',BID)
+save('GOOG_S0.mat',GOOG_S0)
+save('strikes.mat',K)
+save('maturities.mat',maturities)
+save('rates.mat',rates)
+save('voltume.mat',VOL)
+
+
+save('MyArray.mat','MyArray')
 function [Kmin,Kmax] = get_maxminK(strikes_sorted,S0)
 idx_min=1;
 idx_max=0;
 strike_count=length(strikes_sorted);
-%strikes_sorted
-%S0
     while abs(strikes_sorted(idx_min)-S0)>0.02*S0 && idx_min<strike_count
             idx_min=idx_min+1;
     end
@@ -73,8 +96,6 @@ ASK=zeros(number_maturities_for_each_cal_day,number_strikes_for_each_maturity);
 BID=zeros(number_maturities_for_each_cal_day,number_strikes_for_each_maturity);
 
 for i=1:length(maturities)
-%GOOG_S0
-%GOOG_K(1:100)
 [Iday,~]=find(GOOG_date==day);
 [nonzero_volume_idx,~]=find(GOOG_VOL>0);
 [Call_OTM_idx_1,~] = find(GOOG_delta>0); 
@@ -94,8 +115,6 @@ for i=1:length(maturities)
    % first select OTM options only
    [Imat_temp,~]=find(GOOG_mat==maturities(i));
    [Imat,~,~]=intersect(Imat_temp,Iday);
-  % GOOG_date(Iday)
-  % [Imat,~]=find(GOOG_date(Iday)==maturities(i))
    [Imat_idx,~,~] = intersect(nonzero_volume_idx,Imat);
    [Call_idx_OTM,~,~] = intersect(Call_OTM_idx,Imat_idx);
    [Put_idx_OTM,~,~] = intersect(Put_OTM_idx,Imat_idx);
@@ -104,7 +123,7 @@ for i=1:length(maturities)
    [Put_idx_ITM,~,~] = intersect(Put_ITM_idx,Imat_idx);
    ITM_idx=[Call_idx_ITM;Put_idx_ITM];
    
-   GOOG_delta_temp = GOOG_delta(OTM_idx); % something needs fixed here its picking wrong data 
+   GOOG_delta_temp = GOOG_delta(OTM_idx); 
    GOOG_K_temp = GOOG_K(OTM_idx);
    GOOG_VOL_temp = GOOG_VOL(OTM_idx);
    GOOG_IV_temp = GOOG_IV(OTM_idx);
@@ -134,9 +153,6 @@ for i=1:length(maturities)
    GOOG_IV_temp = GOOG_IV(ITM_idx);
    for j=1:length(strikes_sorted)
        if strikes_sorted(j)<Kmax && strikes_sorted(j)>Kmin
-          %Kmin
-          %Kmax
-          %strikes_sorted(j)
           [IV_ITM_idx,~] = find(GOOG_K_temp==strikes_sorted(j));
           if length(IV_ITM_idx)==1
              iv_itm_tmp = GOOG_IV_temp(IV_ITM_idx);
@@ -153,18 +169,20 @@ for i=1:length(maturities)
        end   
    end
    strikes_sorted_unique = unique(strikes_sorted);
-   for i=1:length(iv_spaps)
-       [idx_strike,~]=find(strikes_sorted==strikes_sorted_unique(i));
-       iv_blend
-   end    
+   iv_blend_smooth=iv_blend_sorted;
    [~,iv_spaps] = spaps(strikes_sorted, iv_blend_sorted,0.0005);
+   for k=1:length(iv_spaps)
+       [idx_strike,~]=find(strikes_sorted==strikes_sorted_unique(k));
+       iv_blend_smooth(idx_strike)=iv_spaps(k);
+   end    
    IV(i,:)=iv_sorted;
    IV_blend(i,:)=iv_blend_sorted;
+   IV_blend_smooth(i,:)=iv_blend_smooth;
    hold off
-   plot(strikes_sorted,iv_sorted, strikes_sorted,iv_blend_sorted)
+  % plot(strikes_sorted,iv_sorted, strikes_sorted,iv_blend_sorted)
    hold on
-   xline(GOOG_S0,'--b')
-   plot(strikes_sorted_unique,iv_spaps,'--rs','LineWidth',2,...
+   xline(GOOG_S0,'--b');
+   plot(strikes_sorted,iv_blend_smooth,'--rs','LineWidth',2,...
                        'MarkerEdgeColor','k',...
                        'MarkerFaceColor','g',...
                        'MarkerSize',10)
@@ -187,8 +205,6 @@ end
 end 
 
 function [maturities,rates] = get_data_under_30days(day,GOOG_date,GOOG_mat,GOOG_rate,number_maturities_for_each_cal_day)
-%GOOG_day
-%day
 [Iday,~]=find(GOOG_date==day);
 [rate_day,~]=find(GOOG_rate(:,1)==day);
 rates = GOOG_rate(rate_day,2);
