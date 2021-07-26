@@ -16,8 +16,9 @@ GOOG_delta=data.delta(I);
 [I,~]=find(S(:,2)==121812);
 GOOG_Sday=S(I,1);
 GOOG_S=S(I,3);
-Day_idx=735342:1:(735342+30);
-[GOOG_S0entry,GOOG_cal_days] = find(GOOG_Sday==Day_idx);
+Day_idx=735342:1:(735342+30); %735342:1:(735342+30);
+[GOOG_S0entry,~] = find(GOOG_Sday==Day_idx_price);
+[~,GOOG_cal_days] = find(GOOG_Sday==Day_idx);
 GOOG_S0=GOOG_S(GOOG_S0entry);
 GOOG_cal_idx=GOOG_cal_days+735342-1;
 size(GOOG_S0)
@@ -43,31 +44,34 @@ for i = 1:n
 end
 
 GOOG_timegrids=zeros(n,max(max(maturities)));
-GOOG_timegrids(1,1:length(GOOG_cal_days))=GOOG_cal_days;
+GOOG_timegrids(1,3:(length(GOOG_cal_days)+2))=GOOG_cal_days+1;
+GOOG_timegrids(1,2)=1;
 
 for i=2:n
-    Day_idx_temp=735342+GOOG_cal_days(i):1:(735342++GOOG_cal_days(i)+maturities(i,number_maturities_for_each_cal_day));
+    Day_idx_temp=735342+GOOG_cal_days(i):1:(735342+GOOG_cal_days(i)+maturities(i,number_maturities_for_each_cal_day));
     [~,GOOG_cal_days_temp] = find(GOOG_Sday==Day_idx_temp);
-    GOOG_timegrids(i,1:length(GOOG_cal_days_temp))=GOOG_cal_days_temp;
+    GOOG_timegrids(i,3:(length(GOOG_cal_days_temp)+2))=GOOG_cal_days_temp+1;
+    GOOG_timegrids(i,2)=1;
 end
 
 for i = 1:n
  [IV(i,:,:),IV_blend(i,:,:),IV_blend_smooth(i,:,:),VOL(i,:,:),K(i,:,:),Delta(i,:,:),ASK(i,:,:),BID(i,:,:)] = get_price_data(GOOG_cal_idx(i),GOOG_date,maturities(i,:),GOOG_S0(i),GOOG_mat,GOOG_IV,GOOG_VOL,GOOG_K,GOOG_BID,GOOG_ASK,GOOG_delta,number_strikes_for_each_maturity,GOOG_day,GOOG_month,GOOG_year,number_maturities_for_each_cal_day);
 end
 
-save('GOOG_data.mat')
-save('IV_target.mat',IV_blend_smooth)
-save('IV_raw.mat',IV)
-save('ASK_price.mat',ASK)
-save('BID_price.mat',BID)
-save('GOOG_S0.mat',GOOG_S0)
-save('strikes.mat',K)
-save('maturities.mat',maturities)
-save('rates.mat',rates)
-save('voltume.mat',VOL)
+%save('GOOG_data.mat')
+save('IV_target.mat','IV_blend_smooth')
+save('IV_raw.mat','IV')
+save('ASK_price.mat','ASK')
+save('BID_price.mat','BID')
+save('GOOG_S0.mat','GOOG_S0')
+save('strikes.mat','K')
+save('maturities.mat','maturities')
+save('rates.mat','rates')
+save('voltume.mat','VOL')
+save('timegrids.mat','GOOG_timegrids')
+save('delta.mat','Delta')
 
 
-save('MyArray.mat','MyArray')
 function [Kmin,Kmax] = get_maxminK(strikes_sorted,S0)
 idx_min=1;
 idx_max=0;
@@ -179,7 +183,7 @@ for i=1:length(maturities)
    IV_blend(i,:)=iv_blend_sorted;
    IV_blend_smooth(i,:)=iv_blend_smooth;
    hold off
-  % plot(strikes_sorted,iv_sorted, strikes_sorted,iv_blend_sorted)
+   plot(strikes_sorted,iv_sorted, strikes_sorted,iv_blend_sorted)
    hold on
    xline(GOOG_S0,'--b');
    plot(strikes_sorted,iv_blend_smooth,'--rs','LineWidth',2,...

@@ -16,18 +16,18 @@ GOOG_delta=data.delta(I);
 [I,~]=find(S(:,2)==121812);
 GOOG_Sday=S(I,1);
 GOOG_S=S(I,3);
-Day_idx=735342:1:(735342+30);
+Day_idx=735342:1:(735342+13); %735342:1:(735342+30)
 [GOOG_S0entry,GOOG_cal_days] = find(GOOG_Sday==Day_idx);
 GOOG_S0=GOOG_S(GOOG_S0entry);
 GOOG_cal_idx=GOOG_cal_days+735342-1;
 size(GOOG_S0)
 
-number_maturities_for_each_cal_day=5;
+number_maturities_for_each_cal_day=3;
 n = length(GOOG_cal_days);
 maturities = zeros(n,number_maturities_for_each_cal_day);
 rates = zeros(n,1);
 
-number_strikes_for_each_maturity=25;
+number_strikes_for_each_maturity=20;
 
 IV=zeros(n,number_maturities_for_each_cal_day,number_strikes_for_each_maturity);
 IV_blend=zeros(n,number_maturities_for_each_cal_day,number_strikes_for_each_maturity);
@@ -43,31 +43,34 @@ for i = 1:n
 end
 
 GOOG_timegrids=zeros(n,max(max(maturities)));
-GOOG_timegrids(1,1:length(GOOG_cal_days))=GOOG_cal_days;
+GOOG_timegrids(1,3:(length(GOOG_cal_days)+2))=GOOG_cal_days+1;
+GOOG_timegrids(1,2)=1;
 
 for i=2:n
-    Day_idx_temp=735342+GOOG_cal_days(i):1:(735342++GOOG_cal_days(i)+maturities(i,number_maturities_for_each_cal_day));
+    Day_idx_temp=735342+GOOG_cal_days(i):1:(735342+GOOG_cal_days(i)+maturities(i,number_maturities_for_each_cal_day));
     [~,GOOG_cal_days_temp] = find(GOOG_Sday==Day_idx_temp);
-    GOOG_timegrids(i,1:length(GOOG_cal_days_temp))=GOOG_cal_days_temp;
+    GOOG_timegrids(i,3:(length(GOOG_cal_days_temp)+2))=GOOG_cal_days_temp+1;
+    GOOG_timegrids(i,2)=1;
 end
 
 for i = 1:n
  [IV(i,:,:),IV_blend(i,:,:),IV_blend_smooth(i,:,:),VOL(i,:,:),K(i,:,:),Delta(i,:,:),ASK(i,:,:),BID(i,:,:)] = get_price_data(GOOG_cal_idx(i),GOOG_date,maturities(i,:),GOOG_S0(i),GOOG_mat,GOOG_IV,GOOG_VOL,GOOG_K,GOOG_BID,GOOG_ASK,GOOG_delta,number_strikes_for_each_maturity,GOOG_day,GOOG_month,GOOG_year,number_maturities_for_each_cal_day);
 end
 
-save('GOOG_data.mat','-v7.3')
-save('IV_target.mat','IV_blend_smooth','-v7.3')
-save('IV_raw.mat','IV','-v7.3')
-save('ASK_price.mat','ASK','-v7.3')
-save('BID_price.mat','BID','-v7.3')
-save('GOOG_S0.mat','GOOG_S0','-v7.3')
-save('strikes.mat','K','-v7.3')
-save('maturities.mat','maturities','-v7.3')
-save('rates.mat','rates','-v7.3')
-save('voltume.mat','VOL','-v7.3')
+%save('GOOG_data.mat')
+save('IV_target.mat','IV_blend_smooth')
+save('IV_raw.mat','IV')
+save('ASK_price.mat','ASK')
+save('BID_price.mat','BID')
+save('GOOG_S0.mat','GOOG_S0')
+save('strikes.mat','K')
+save('maturities.mat','maturities')
+save('rates.mat','rates')
+save('voltume.mat','VOL')
+save('timegrids.mat','GOOG_timegrids')
+save('delta.mat','Delta')
 
 
-save('MyArray.mat','MyArray')
 function [Kmin,Kmax] = get_maxminK(strikes_sorted,S0)
 idx_min=1;
 idx_max=0;
@@ -111,6 +114,7 @@ for i=1:length(maturities)
 [Put_ITM_idx_2,~] = find(GOOG_K>GOOG_S0);
 [Call_ITM_idx,~,~] = intersect(Call_ITM_idx_1,Call_ITM_idx_2);
 [Put_ITM_idx,~,~] = intersect(Put_ITM_idx_1,Put_ITM_idx_2);
+
     
    % first select OTM options only
    [Imat_temp,~]=find(GOOG_mat==maturities(i));
