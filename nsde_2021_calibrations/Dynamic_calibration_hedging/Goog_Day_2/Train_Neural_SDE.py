@@ -251,9 +251,9 @@ class Net_LSV(nn.Module):
             if args.hedge_exotic and int(timegrid[i]*365+0.0001)==maturity_exotic :
                     dis_fact = torch.exp(-rate*(timegrid[i]-timegrid[cal_day]))
                     if args.lookback_exotic:
-                        exotic_payoff = running_max - S_old
+                        exotic_payoff = running_max - S_old_exotic
                     elif args.straddle_exotic:    
-                        exotic_payoff = torch.clamp(S_old.detach()-realised_prices[0],0)+torch.clamp(-S_old.detach()+realised_prices[0],0)
+                        exotic_payoff = torch.clamp(S_old_exotic.detach()-realised_prices[0],0)+torch.clamp(-S_old_exotic.detach()+realised_prices[0],0)
                     exotic_payoff_detach = exotic_payoff.detach() # detach dependence on price for estimating variance of exotic                    
                     pe_h_temp = dis_fact*exotic_payoff_detach.squeeze(1).reshape(MC_samples,1)-cv_exotic.reshape(MC_samples,1)
                     pe_u = dis_fact*exotic_payoff.squeeze(1)
@@ -321,7 +321,7 @@ def train_nsde(model,z_val,z_val_var,z_test,z_test_var,config):
     optimizer_SDE = torch.optim.Adam(params_SDE,lr=25*learning_rate)
     
     if args.hedge_exotic:
-        optimizer_exotic_hedge = torch.optim.Adam(params_exotic_hedge,lr=25*learning_rate)
+        optimizer_exotic_hedge = torch.optim.Adam(params_exotic_hedge,lr=1*learning_rate)
 
     best_IV_mean_error = 10
     best_hedge_error = 9999999999
@@ -841,7 +841,7 @@ if __name__ == '__main__':
     MC_samples_var=400000
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('--device', type=int, default=7)
+    parser.add_argument('--device', type=int, default=5)
     parser.add_argument('--MC_samples_price',type=int,default=MC_samples_price)
     parser.add_argument('--MC_samples_var',type=int,default=MC_samples_var)
     parser.add_argument('--tamed_Euler', action='store_true', default=False)
@@ -866,7 +866,7 @@ if __name__ == '__main__':
     
     maturity_values = np.load("maturities.npy")
     cal_day = np.load("cal_day.npy")
-    realised_prices = torch.tensor(np.load("GOOG_ALL.npy").astype('float32'))[0:10].to(device)
+    realised_prices = torch.tensor(np.load("GOOG_ALL.npy").astype('float32')).to(device)
     print('realised_prices',realised_prices)
     maturity_value_exotic = np.load("maturity_exotic.npy")
     n_maturities = len(maturity_values)
@@ -995,7 +995,7 @@ if __name__ == '__main__':
     # After SDE is trained to IV data, learn hedging strategies for lookback and ATM straddle
     
     parser = argparse.ArgumentParser()                     
-    parser.add_argument('--device', type=int, default=7)
+    parser.add_argument('--device', type=int, default=5)
     parser.add_argument('--MC_samples_price',type=int,default=MC_samples_price)
     parser.add_argument('--MC_samples_var',type=int,default=MC_samples_var)
     parser.add_argument('--tamed_Euler', action='store_true', default=False)
@@ -1008,7 +1008,7 @@ if __name__ == '__main__':
     model_SDE_hedge_1 = train_nsde(model_SDE, z_val,z_val_var,z_test,z_test_var, CONFIG_Exotic_Hedge)
      
     parser = argparse.ArgumentParser()    
-    parser.add_argument('--device', type=int, default=7)
+    parser.add_argument('--device', type=int, default=5)
     parser.add_argument('--MC_samples_price',type=int,default=MC_samples_price)
     parser.add_argument('--MC_samples_var',type=int,default=MC_samples_var)
     parser.add_argument('--tamed_Euler', action='store_true', default=False)

@@ -16,7 +16,7 @@ GOOG_delta=data.delta(I);
 [I,~]=find(S(:,2)==121812);
 GOOG_Sday=S(I,1);
 GOOG_S=S(I,3);
-Day_idx=735342:1:(735342+13); %735342:1:(735342+30)
+Day_idx=735342:1:(735342+15); %735342:1:(735342+30)
 [GOOG_S0entry,GOOG_cal_days] = find(GOOG_Sday==Day_idx);
 GOOG_S0=GOOG_S(GOOG_S0entry);
 GOOG_cal_idx=GOOG_cal_days+735342-1;
