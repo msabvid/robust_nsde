@@ -321,7 +321,7 @@ def train_nsde(model,z_val,z_val_var,z_test,z_test_var,config):
     optimizer_SDE = torch.optim.Adam(params_SDE,lr=25*learning_rate)
     
     if args.hedge_exotic:
-        optimizer_exotic_hedge = torch.optim.Adam(params_exotic_hedge,lr=1*learning_rate)
+        optimizer_exotic_hedge = torch.optim.Adam(params_exotic_hedge,lr=learning_rate)
 
     best_IV_mean_error = 10
     best_hedge_error = 9999999999
@@ -468,92 +468,7 @@ def train_nsde(model,z_val,z_val_var,z_test,z_test_var,config):
             print('ATM 6-Month Put Price At initialisation:', put_atm)
             print('ATM 6-Month Put-Call Parity Error At Initialisation:', put_call_parity_error)
             print('Rho at initialisation:', torch.tanh(model.rho))
-          
-                        
-        print('Epoch, batch size:', epoch, batch_size)
-        for i in range(0,20*batch_size, batch_size):
-            # simulate paths over entire training horizon 
-
-            if args.hedge_exotic==False:
-                optimizer_SDE.zero_grad()
-                optimizer_vanilla_hedge.zero_grad()
-            
-            if args.hedge_exotic:
-                optimizer_exotic_hedge.zero_grad()
-                
-            # Start training CV networks from 1st epoch, at initial (0th) epoch neural networks corresponding to SDE parameters are trained  
-            
-            # Train Vanilla Hedging Strategy 
-            if epoch%10==1 and args.hedge_exotic==False: 
-                model.vanilla_hedge.unfreeze()
-                model.S_vol.freeze()
-                model.V_drift.freeze()
-                model.V_vol.freeze()
-                model.exotic_hedge_straddle.freeze()
-                model.exotic_hedge_lookback.freeze()
-                init_time = time.time()
-                batch_x1 = torch.randn(batch_size_hedge, batch_steps, device=device)
-                _, var_pv_h, _,_,_, _, _, _, _, _,_ = model(S0, realised_prices,past_hedges, rate, batch_x1, batch_size_hedge,T,n_maturities=n_maturities,maturities=maturities,maturity_exotic=maturity_exotic,strikes=strikes,timegrid=timegrid,gradient_count=gradient_count)
-                time_forward = time.time() - init_time
-                loss = var_pv_h.sum()
-                init_time = time.time()
-                itercount += 1
-                loss.backward()
-                time_backward = time.time() - init_time
-                if (itercount % 20 == 0):
-                    print('Training Vanilla Hedging Strategy')
-                    print('iteration {}, sum_variance_vanilla={:.4f},time_forward={:.4f}, time_backward={:.4f}'.format(itercount, loss.item(), time_forward, time_backward))
-                optimizer_vanilla_hedge.step()
-                  
-            # Train Neural Networks Corresponding to SDE Parameters to vanilla target with path-dependent objective
-            if epoch%10!=1 and args.hedge_exotic==False: 
-                model.S_vol.unfreeze()
-                model.V_drift.unfreeze()
-                model.V_vol.unfreeze()
-                model.vanilla_hedge.freeze()
-                model.exotic_hedge_lookback.freeze()
-                model.exotic_hedge_straddle.freeze()
-                init_time = time.time()
-                batch_x1 = torch.randn(batch_size, batch_steps_daily, device=device)
-                pv_h, _, _,_,_, _, _, put_atm, call_atm, put_call_parity_error,_ = model(S0, realised_prices, past_hedges, rate, batch_x1, batch_size,T,n_maturities=n_maturities, maturities=maturities,maturity_exotic=maturity_exotic,strikes=strikes,timegrid=timegrid,gradient_count=gradient_count)
-                time_forward = time.time() - init_time
-                pred = torch.reshape(pv_h,(n_maturities,n_strikes))
-                MSE = loss_fn(torch.mul(pred,inverse_vega),torch.mul(target_option_prices,inverse_vega))
-                loss= MSE #opt_constant*pe_h + LAMBDA_2 * MSE + c_2/2 * MSE**2  
-                init_time = time.time()
-                itercount +=1
-                loss.backward()
-                time_backward = time.time() - init_time
-                if (itercount % 20 == 0):
-                    print('Training SDE Parameters')
-                    print('iteration {}, Loss={:.4f}, time_forward={:.4f}, time_backward={:.4f}'.format(itercount,loss.item(), time_forward, time_backward))
-                optimizer_SDE.step()
-
-            # Train Neural Network Corresponding to Exotic Hedging Strategy
-            if args.hedge_exotic and args.train_exotic: 
-                model.S_vol.freeze()
-                model.V_drift.freeze()
-                model.V_vol.freeze()
-                model.vanilla_hedge.freeze()
-                if args.lookback_exotic:
-                    model.exotic_hedge_lookback.unfreeze()
-                    model.exotic_hedge_straddle.freeze()
-                if args.straddle_exotic:
-                    model.exotic_hedge_straddle.unfreeze()
-                    model.exotic_hedge_lookback.freeze()
-                init_time = time.time()
-                batch_x1 = torch.randn(batch_size_hedge, batch_steps, device=device)
-                _, _, _,pe_h, _,pe_var_h,_, _, _, _, _ = model(S0, realised_prices, past_hedges, rate, batch_x1, batch_size_hedge,T_exotic,n_maturities=n_maturities, maturities=maturities,maturity_exotic=maturity_exotic,strikes=strikes,timegrid=timegrid_exotic,gradient_count=gradient_count_exotic)
-                time_forward = time.time() - init_time
-                loss= pe_var_h
-                init_time = t
-                itercount +=1
-                loss.backward()
-                time_backward = time.time() - init_time
-                if (itercount % 20 == 0):
-                    print('Training Exotic Hedging Strategy')
-                    print('iteration {}, variance_exotic_option={:.4f}, time_backward={:.4f}'.format(itercount, loss.item(), time_forward, time_backward))
-                optimizer_exotic_hedge.step()                                    
+                            
          
         with torch.no_grad():
             if args.hedge_exotic: 
@@ -841,7 +756,7 @@ if __name__ == '__main__':
     MC_samples_var=400000
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('--device', type=int, default=5)
+    parser.add_argument('--device', type=int, default=7)
     parser.add_argument('--MC_samples_price',type=int,default=MC_samples_price)
     parser.add_argument('--MC_samples_var',type=int,default=MC_samples_var)
     parser.add_argument('--tamed_Euler', action='store_true', default=False)
@@ -865,7 +780,7 @@ if __name__ == '__main__':
     print('strikes', strikes)
     
     maturity_values = np.load("maturities.npy")
-    cal_day = np.load("cal_day.npy")
+    cal_day = np.load("cal_day.npy")+2
     realised_prices = torch.tensor(np.load("GOOG_ALL.npy").astype('float32')).to(device)
     print('realised_prices',realised_prices)
     maturity_value_exotic = np.load("maturity_exotic.npy")
@@ -964,8 +879,8 @@ if __name__ == '__main__':
               "target_data":data,
               "seed":seed}
                                         
-   # model_SDE = train_nsde(model, z_val,z_val_var,z_test,z_test_var, CONFIG_SDE)
-    model_SDE = model # if model has been trained already 
+    model_SDE = train_nsde(model, z_val,z_val_var,z_test,z_test_var, CONFIG_SDE)
+  #  model_SDE = model # if model has been trained already 
     
     CONFIG_Exotic_Hedge = {"batch_size":50000,
               "batch_size_hedge":10000,
@@ -995,12 +910,11 @@ if __name__ == '__main__':
     # After SDE is trained to IV data, learn hedging strategies for lookback and ATM straddle
     
     parser = argparse.ArgumentParser()                     
-    parser.add_argument('--device', type=int, default=5)
+    parser.add_argument('--device', type=int, default=7)
     parser.add_argument('--MC_samples_price',type=int,default=MC_samples_price)
     parser.add_argument('--MC_samples_var',type=int,default=MC_samples_var)
     parser.add_argument('--tamed_Euler', action='store_true', default=False)
     parser.add_argument('--hedge_exotic',action='store_true', default=True)
-    parser.add_argument('--train_exotic',action='store_true', default=False)
     parser.add_argument('--lookback_exotic',action='store_true', default=True)
     parser.add_argument('--straddle_exotic',action='store_true', default=False)
     parser.add_argument('--dynamic_weight_update',action='store_true', default=True)
@@ -1009,12 +923,11 @@ if __name__ == '__main__':
     model_SDE_hedge_1 = train_nsde(model_SDE, z_val,z_val_var,z_test,z_test_var, CONFIG_Exotic_Hedge)
      
     parser = argparse.ArgumentParser()    
-    parser.add_argument('--device', type=int, default=5)
+    parser.add_argument('--device', type=int, default=7)
     parser.add_argument('--MC_samples_price',type=int,default=MC_samples_price)
     parser.add_argument('--MC_samples_var',type=int,default=MC_samples_var)
     parser.add_argument('--tamed_Euler', action='store_true', default=False)
-    parser.add_argument('--hedge_exotic',action='store_true', default=True)
-    parser.add_argument('--train_exotic',action='store_true', default=False) 
+    parser.add_argument('--hedge_exotic',action='store_true', default=True) 
     parser.add_argument('--lookback_exotic',action='store_true', default=False)
     parser.add_argument('--straddle_exotic',action='store_true', default=True)
     parser.add_argument('--dynamic_weight_update',action='store_true', default=True)
