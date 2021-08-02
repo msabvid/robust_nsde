@@ -295,7 +295,7 @@ Delta_ATM(i)=(delta_1+delta_2);
    plot_title = strcat('Maturity: T=', string(maturities(i)) , ' (d), ',' Date:  ', string(GOOG_day(Iday(1))),'.', string(GOOG_month(Iday(1))),'.' ,string(GOOG_year(Iday(1))));
    save_string = strcat('Target_Data_Date',string(GOOG_day(Iday(1))),string(GOOG_month(Iday(1))),string(GOOG_year(Iday(1))),'Maturity',string(maturities(i)));
    title(plot_title);
-   saveas(gcf,save_string,'pdf');
+   saveas(gcf,save_string,'png');
    delete(gcf);
    hold off
 
