@@ -281,13 +281,13 @@ Delta_ATM(i)=(delta_1+delta_2);
     end
             
    hold off
-   plot(strikes_sorted,iv_sorted,strikes_sorted,iv_blend_sorted,'LineWidth',3,'LineWidth',3  )
+   plot(strikes_sorted,iv_sorted, strikes_sorted,iv_blend_sorted,'LineWidth',3,'LineWidth',3,)
    hold on
    xline(GOOG_S0,'--b');
    plot(strikes_sorted,iv_blend_smooth,'--rs','LineWidth',3,...
                        'MarkerEdgeColor','k',...
                        'MarkerFaceColor','g',...
-                       'MarkerSize',10)
+                       'MarkerSize',5)
    
    xlabel('Strike')
    ylabel('Implied Vol.')
