@@ -4,21 +4,21 @@ load('model_IV_fit_previous.mat')
 load('model_IV_fit.mat')
 
 
-plot_neural_SDE_fit_day_zero(GOOG_cal_idx(1),GOOG_date,maturities(1,:),GOOG_S0(1),IV_blend_smooth(1,:,:),model_IV_fit(1,:,:), K(1,:,:), GOOG_day,GOOG_month,GOOG_year)
-for i = 2:9
- plot_neural_SDE_fit(GOOG_cal_idx(i),GOOG_date,maturities(i,:),GOOG_S0(i),IV_blend_smooth(i,:,:),model_IV_fit(i,:,:),model_IV_fit_previous(i,:,:), K(i,:,:), GOOG_day,GOOG_month,GOOG_year)
+plot_neural_SDE_fit_day_zero(GOOG_cal_idx(1),GOOG_date,maturities(1,:),GOOG_S0(1),IV_blend_smooth(1,:,:),model_IV_fit(1,:,:), K(1,:,:), GOOG_day,GOOG_month,GOOG_year, number_strikes_for_each_maturity)
+for i = 2:n
+ plot_neural_SDE_fit(GOOG_cal_idx(i),GOOG_date,maturities(i,:),GOOG_S0(i),IV_blend_smooth(i,:,:),model_IV_fit(i,:,:),model_IV_fit_previous(i,:,:), K(i,:,:), GOOG_day,GOOG_month,GOOG_year,number_strikes_for_each_maturity)
 end
 
 
-function [] = plot_neural_SDE_fit(day,GOOG_date,maturities,GOOG_S0,IV_blend,IV_model,IV_model_previous, Strikes, GOOG_day,GOOG_month,GOOG_year)
+function [] = plot_neural_SDE_fit(day,GOOG_date,maturities,GOOG_S0,IV_blend,IV_model,IV_model_previous, Strikes, GOOG_day,GOOG_month,GOOG_year,number_strikes_for_each_maturity)
 
 for i=1:length(maturities)
 [Iday,~]=find(GOOG_date==day);
 
-iv_target = zeros(1,25);
-iv_model = zeros(1,25);
-iv_model_previous = zeros(1,25);
-strikes_sorted = zeros(1,25);
+iv_target = zeros(1,number_strikes_for_each_maturity);
+iv_model = zeros(1,number_strikes_for_each_maturity);
+iv_model_previous = zeros(1,number_strikes_for_each_maturity);
+strikes_sorted = zeros(1,number_strikes_for_each_maturity);
 
 iv_target(1,:) = IV_blend(1,i,:);
 iv_model(1,:) = IV_model(1,i,:);
@@ -49,14 +49,14 @@ strikes_sorted(1,:) = Strikes(1,i,:);
 end
 end
 
-function [] = plot_neural_SDE_fit_day_zero(day,GOOG_date,maturities,GOOG_S0,IV_blend,IV_model, Strikes, GOOG_day,GOOG_month,GOOG_year)
+function [] = plot_neural_SDE_fit_day_zero(day,GOOG_date,maturities,GOOG_S0,IV_blend,IV_model, Strikes, GOOG_day,GOOG_month,GOOG_year,number_strikes_for_each_maturity)
 
 for i=1:length(maturities)
 [Iday,~]=find(GOOG_date==day);
 
-iv_target = zeros(1,25);
-iv_model = zeros(1,25);
-strikes_sorted = zeros(1,25);
+iv_target = zeros(1,number_strikes_for_each_maturity);
+iv_model = zeros(1,number_strikes_for_each_maturity);
+strikes_sorted = zeros(1,number_strikes_for_each_maturity);
 
 iv_target(1,:) = IV_blend(1,i,:);
 iv_model(1,:) = IV_model(1,i,:);

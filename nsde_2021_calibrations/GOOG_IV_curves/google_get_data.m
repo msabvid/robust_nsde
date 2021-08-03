@@ -1,4 +1,4 @@
-%load('date_1621-1650.mat')
+%load('date_1621-1650.mat') 
 [I,~]=find(data.secid==121812); % find ID of Google
 GOOG_IV=data.impl_volatility(I);
 GOOG_VOL=data.volume(I);
@@ -12,11 +12,11 @@ GOOG_rate=itrate;
 GOOG_month=data.m(I);
 GOOG_year=data.y(I);
 GOOG_delta=data.delta(I);
-%load('allS_new.mat')
+%load('allS_new.mat') historical close prices
 [I,~]=find(S(:,2)==121812);
 GOOG_Sday=S(I,1);
 GOOG_S=S(I,3);
-Day_idx=735342:1:(735342+15); %735342:1:(735342+30)
+Day_idx=735342:1:(735342+15); 
 [GOOG_S0entry,GOOG_cal_days] = find(GOOG_Sday==Day_idx);
 GOOG_S0=GOOG_S(GOOG_S0entry);
 GOOG_cal_idx=GOOG_cal_days+735342-1;
@@ -43,6 +43,7 @@ for i = 1:n
     [maturities(i,:),rates(i)]= get_data_under_30days(GOOG_cal_idx(i),GOOG_date,GOOG_mat,GOOG_rate,number_maturities_for_each_cal_day);
 end
 
+
 GOOG_timegrids=zeros(n,max(max(maturities)));
 GOOG_timegrids(1,2:(length(GOOG_cal_days)+1))=GOOG_cal_days;
 GOOG_timegrids(1,(length(GOOG_cal_days)+2))=GOOG_cal_days(end)+1;
@@ -57,6 +58,8 @@ end
 for i = 1:n
  [IV(i,:,:),IV_blend(i,:,:),IV_blend_smooth(i,:,:),VOL(i,:,:),K(i,:,:),Delta(i,:,:),ASK(i,:,:),BID(i,:,:),Price(i,:,:),Delta_ATM(i,:)] = get_price_data(GOOG_cal_idx(i),GOOG_date,maturities(i,:),GOOG_S0(i),rates(i),GOOG_mat,GOOG_IV,GOOG_VOL,GOOG_K,GOOG_BID,GOOG_ASK,GOOG_delta,number_strikes_for_each_maturity,GOOG_day,GOOG_month,GOOG_year,number_maturities_for_each_cal_day);
 end
+maturities(11,2)=maturities(11,2)-1; % adjust some later maturities to fit the timegrid
+maturities(12,2)=maturities(12,2)-1;
 
 %save('GOOG_data.mat')
 save('IV_target.mat','IV_blend_smooth')
