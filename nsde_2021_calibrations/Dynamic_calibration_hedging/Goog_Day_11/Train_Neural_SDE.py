@@ -866,7 +866,7 @@ if __name__ == '__main__':
     
     maturity_values = np.load("maturities.npy")
     cal_day = np.load("cal_day.npy")
-    realised_prices = torch.tensor(np.load("GOOG_ALL.npy").astype('float32')).to(device)
+    realised_prices = torch.tensor(np.load("GOOG_ALL.npy").astype('float32'))[0:cal_day+1].to(device)
     print('realised_prices',realised_prices)
     maturity_value_exotic = np.load("maturity_exotic.npy")
     n_maturities = len(maturity_values)
@@ -918,6 +918,8 @@ if __name__ == '__main__':
         checkpoint=torch.load(checkpoint_str)
         model.load_state_dict(checkpoint['state_dict'])
         model = model.to(device)
+        if torch.abs(torch.tanh(model.rho.detach().cpu()))>0.99:
+        	model.rho=torch.nn.Parameter(model.rho.detach().cpu()*0.25)
         hedges_straddle = checkpoint['past_hedges']
         checkpoint_str= "NSDE_test_hedge_lookback_seed_{}_cal_day_{}.pth.tar".format(seed,cal_day-1) 
         checkpoint=torch.load(checkpoint_str)
@@ -941,7 +943,7 @@ if __name__ == '__main__':
 
     CONFIG_SDE = {"batch_size":50000,
               "batch_size_hedge":10000,
-              "n_epochs":1,
+              "n_epochs":50,
               "cal_day":cal_day,
               "gradient_count":gradient_count,
               "gradient_count_exotic":gradient_count_exotic,    
@@ -964,8 +966,8 @@ if __name__ == '__main__':
               "target_data":data,
               "seed":seed}
                                         
-   # model_SDE = train_nsde(model, z_val,z_val_var,z_test,z_test_var, CONFIG_SDE)
-    model_SDE = model # if model has been trained already 
+    model_SDE = train_nsde(model, z_val,z_val_var,z_test,z_test_var, CONFIG_SDE)
+  #  model_SDE = model # if model has been trained already 
     
     CONFIG_Exotic_Hedge = {"batch_size":50000,
               "batch_size_hedge":10000,
@@ -1013,8 +1015,8 @@ if __name__ == '__main__':
     parser.add_argument('--MC_samples_price',type=int,default=MC_samples_price)
     parser.add_argument('--MC_samples_var',type=int,default=MC_samples_var)
     parser.add_argument('--tamed_Euler', action='store_true', default=False)
-    parser.add_argument('--hedge_exotic',action='store_true', default=True)
-    parser.add_argument('--train_exotic',action='store_true', default=False) 
+    parser.add_argument('--hedge_exotic',action='store_true', default=True) 
+    parser.add_argument('--train_exotic',action='store_true', default=False)
     parser.add_argument('--lookback_exotic',action='store_true', default=False)
     parser.add_argument('--straddle_exotic',action='store_true', default=True)
     parser.add_argument('--dynamic_weight_update',action='store_true', default=True)

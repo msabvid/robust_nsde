@@ -866,7 +866,7 @@ if __name__ == '__main__':
     
     maturity_values = np.load("maturities.npy")
     cal_day = np.load("cal_day.npy")
-    realised_prices = torch.tensor(np.load("GOOG_ALL.npy").astype('float32')).to(device)
+    realised_prices = torch.tensor(np.load("GOOG_ALL.npy").astype('float32'))[0:cal_day+1].to(device)
     print('realised_prices',realised_prices)
     maturity_value_exotic = np.load("maturity_exotic.npy")
     n_maturities = len(maturity_values)
@@ -918,6 +918,8 @@ if __name__ == '__main__':
         checkpoint=torch.load(checkpoint_str)
         model.load_state_dict(checkpoint['state_dict'])
         model = model.to(device)
+        if torch.abs(torch.tanh(model.rho.detach().cpu()))>0.99:
+        	model.rho=torch.nn.Parameter(model.rho.detach().cpu()*0.25)
         hedges_straddle = checkpoint['past_hedges']
         checkpoint_str= "NSDE_test_hedge_lookback_seed_{}_cal_day_{}.pth.tar".format(seed,cal_day-1) 
         checkpoint=torch.load(checkpoint_str)

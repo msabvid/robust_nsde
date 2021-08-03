@@ -6,7 +6,11 @@ load('model_IV_fit.mat')
 
 plot_neural_SDE_fit_day_zero(GOOG_cal_idx(1),GOOG_date,maturities(1,:),GOOG_S0(1),IV_blend_smooth(1,:,:),model_IV_fit(1,:,:), K(1,:,:), GOOG_day,GOOG_month,GOOG_year, number_strikes_for_each_maturity)
 for i = 2:n
- plot_neural_SDE_fit(GOOG_cal_idx(i),GOOG_date,maturities(i,:),GOOG_S0(i),IV_blend_smooth(i,:,:),model_IV_fit(i,:,:),model_IV_fit_previous(i,:,:), K(i,:,:), GOOG_day,GOOG_month,GOOG_year,number_strikes_for_each_maturity)
+ maturities_temp =maturities(i,:);   
+ if i>10
+    maturities_temp(2)=maturities_temp(2)+1; 
+ end    
+ plot_neural_SDE_fit(GOOG_cal_idx(i),GOOG_date,maturities_temp,GOOG_S0(i),IV_blend_smooth(i,:,:),model_IV_fit(i,:,:),model_IV_fit_previous(i,:,:), K(i,:,:), GOOG_day,GOOG_month,GOOG_year,number_strikes_for_each_maturity)
 end
 
 
@@ -14,6 +18,8 @@ function [] = plot_neural_SDE_fit(day,GOOG_date,maturities,GOOG_S0,IV_blend,IV_m
 
 for i=1:length(maturities)
 [Iday,~]=find(GOOG_date==day);
+
+
 
 iv_target = zeros(1,number_strikes_for_each_maturity);
 iv_model = zeros(1,number_strikes_for_each_maturity);

@@ -58,7 +58,7 @@ end
 for i = 1:n
  [IV(i,:,:),IV_blend(i,:,:),IV_blend_smooth(i,:,:),VOL(i,:,:),K(i,:,:),Delta(i,:,:),ASK(i,:,:),BID(i,:,:),Price(i,:,:),Delta_ATM(i,:)] = get_price_data(GOOG_cal_idx(i),GOOG_date,maturities(i,:),GOOG_S0(i),rates(i),GOOG_mat,GOOG_IV,GOOG_VOL,GOOG_K,GOOG_BID,GOOG_ASK,GOOG_delta,number_strikes_for_each_maturity,GOOG_day,GOOG_month,GOOG_year,number_maturities_for_each_cal_day);
 end
-maturities(11,2)=maturities(11,2)-1; % adjust some later maturities to fit the timegrid
+maturities(11,2)=maturities(11,2)-1; % adjust maturities to fit the timegrid, we assume initial price to be open (ATM) and first timestep to model the close
 maturities(12,2)=maturities(12,2)-1;
 
 %save('GOOG_data.mat')

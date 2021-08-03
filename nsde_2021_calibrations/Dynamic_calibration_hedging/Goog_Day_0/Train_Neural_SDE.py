@@ -907,9 +907,9 @@ if __name__ == '__main__':
             model.vanilla_hedge.net_t[idx].h_o = copy.deepcopy(model.vanilla_hedge.net_t[0].h_o)
             model.vanilla_hedge.net_t[idx].i_h = copy.deepcopy(model.vanilla_hedge.net_t[0].i_h)
             model.vanilla_hedge.net_t[idx].h_h = copy.deepcopy(model.vanilla_hedge.net_t[0].h_h)
-        checkpoint_str= "NSDE_test_LSV_seed_{}_cal_day_{}.pth.tar".format(seed,cal_day) 
-        checkpoint=torch.load(checkpoint_str)
-        model.load_state_dict(checkpoint['state_dict'])
+      #  checkpoint_str= "NSDE_test_LSV_seed_{}_cal_day_{}.pth.tar".format(seed,cal_day) 
+      #  checkpoint=torch.load(checkpoint_str)
+      #  model.load_state_dict(checkpoint['state_dict'])
         model = model.to(device)  
         hedges_straddle = torch.zeros_like(realised_prices).to(device=device).float()
         hedges_lookback = torch.zeros_like(realised_prices).to(device=device).float()
@@ -941,7 +941,7 @@ if __name__ == '__main__':
 
     CONFIG_SDE = {"batch_size":50000,
               "batch_size_hedge":10000,
-              "n_epochs":3000,
+              "n_epochs":2000,
               "cal_day":cal_day,
               "gradient_count":gradient_count,
               "gradient_count_exotic":gradient_count_exotic,    
@@ -964,8 +964,8 @@ if __name__ == '__main__':
               "target_data":data,
               "seed":seed}
                                         
-   # model_SDE = train_nsde(model, z_val,z_val_var,z_test,z_test_var, CONFIG_SDE)
-    model_SDE = model # if model has been trained already 
+    model_SDE = train_nsde(model, z_val,z_val_var,z_test,z_test_var, CONFIG_SDE)
+   # model_SDE = model # if model has been trained already 
     
     CONFIG_Exotic_Hedge = {"batch_size":50000,
               "batch_size_hedge":10000,
