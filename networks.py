@@ -10,6 +10,8 @@ class Net_FFN(nn.Module):
         
         if activation=="relu":
             self.activation = nn.ReLU()
+        elif activation == "silu":
+            self.activation = nn.SiLU()
         elif activation=="tanh":
             self.activation = nn.Tanh()
         else:

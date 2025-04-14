@@ -2,6 +2,7 @@ import sys
 import os
 sys.path.append(os.path.dirname('__file__'))
 
+import matplotlib.pyplot as plt
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -14,7 +15,9 @@ import copy
 import argparse
 import random
 
+from IPython.display import Image
 from networks import *
+from geomloss import SamplesLoss
 
 
 class Net_LSV(nn.Module):
@@ -22,7 +25,7 @@ class Net_LSV(nn.Module):
     Calibration of LV model: dS_t = S_t*r*dt + L(t,S_t,theta)dW_t to vanilla prices at different maturities
     """
 
-    def __init__(self, dim, timegrid, strikes_call,  n_layers, vNetWidth, device, rate, maturities, n_maturities):
+    def __init__(self, dim, timegrid, strikes_call,  n_layers, vNetWidth, device, rate, maturities, n_maturities, activation="relu"):
         
         super(Net_LSV, self).__init__()
         self.dim = dim
@@ -31,18 +34,20 @@ class Net_LSV(nn.Module):
         self.strikes_call = strikes_call
         self.maturities = maturities
         self.rate = rate
+        self.activation = activation
+         
         
         
         # Neural SDE for LSV model
-        self.diffusion = Net_timegrid(dim=dim+2, nOut=1, n_layers=n_layers, vNetWidth=vNetWidth, n_maturities=n_maturities, activation_output="softplus")
+        self.diffusion = Net_timegrid(dim=dim+2, nOut=1, n_layers=n_layers, vNetWidth=vNetWidth, n_maturities=n_maturities, activation = activation, activation_output="softplus")
         self.v0 = torch.nn.Parameter(torch.rand(1)-3)
         self.driftV = Net_timegrid(dim=dim, nOut=1, n_layers=n_layers, vNetWidth=vNetWidth, n_maturities=n_maturities)
-        self.diffusionV = Net_timegrid(dim=dim, nOut=1, n_layers=n_layers, vNetWidth=vNetWidth, n_maturities=n_maturities, activation_output="softplus")
+        self.diffusionV = Net_timegrid(dim=dim, nOut=1, n_layers=n_layers, vNetWidth=vNetWidth, n_maturities=n_maturities, activation = activation, activation_output="softplus")
         self.rho = torch.nn.Parameter(2*torch.rand(1)-1)
         
         # Control Variates
-        self.control_variate_vanilla = Net_timegrid(dim=dim+1, nOut=len(strikes_call)*n_maturities, n_layers=3, vNetWidth=30, n_maturities=n_maturities)
-        self.control_variate_exotics = Net_timegrid(dim=dim*len(self.timegrid)+1+1, nOut=1, n_layers = 3, vNetWidth = 20, n_maturities=n_maturities)
+        self.control_variate_vanilla = Net_timegrid(dim=dim+1, nOut=len(strikes_call)*n_maturities, n_layers=3, vNetWidth=30, n_maturities=n_maturities, activation= activation)
+        self.control_variate_exotics = Net_timegrid(dim=dim*len(self.timegrid)+1+1, nOut=1, n_layers = 3, vNetWidth = 20, n_maturities=n_maturities, activation= activation)
         
 
     def forward(self, S0, z, MC_samples, ind_T, period_length=30): 
@@ -103,20 +108,33 @@ class Net_LSV(nn.Module):
         
         return price_vanilla_cv, var_price_vanilla_cv, exotic_option_price, exotic_option_price.mean(), exotic_option_price.var(), error
 
-
-
+#censé etre mieux pour relu et silu 
+def init_weights_lu(m):
+    if isinstance(m, nn.Linear):
+        nn.init.kaiming_normal_(m.weight, mode='fan_in', nonlinearity='linear')  
+        if m.bias is not None:
+            m.bias.data.zero_()
+#censé etre mieux pour tanh
 def init_weights(m):
     if isinstance(m, nn.Linear):
         nn.init.xavier_normal_(m.weight.data, gain=1.5)
 
 
-def train_nsde(model, z_test, config):
+
+def train_nsde(model, z_test, config,loss_calibration='MSE',init='xavier'): #METTRE loss_calibration='Wass' pour loss de Wasserstein (juste la calibration pas le hedging) et init='kaiming' pour init a kiaming, sinon parametre par defaut sont comme avant les changements 
+        
     
-    loss_fn = nn.MSELoss() 
+    if loss_calibration=='Wass':
+        loss_fn = SamplesLoss("sinkhorn", p=2, blur=0.05)
+    else:
+        loss_fn = nn.MSELoss() 
     
     n_maturities = len(maturities)
     model = model.to(device)
-    model.apply(init_weights)
+    if init=='kaiming':
+        model.apply(init_weights_lu)
+    else:
+        model.apply(init_weights)
     params_SDE = list(model.diffusion.parameters())+list(model.driftV.parameters()) + list(model.diffusionV.parameters()) + [model.rho, model.v0]
     
 
@@ -132,6 +150,8 @@ def train_nsde(model, z_test, config):
     loss_val_best = 10
     itercount=0
     
+    errors_hedge_2=torch.zeros(n_epochs)
+    errors_hedge_inf=torch.zeros(n_epochs)
     for epoch in range(n_epochs):
         
         # We alternate Neural SDE optimisation and Hedging strategy optimisation
@@ -155,7 +175,6 @@ def train_nsde(model, z_test, config):
             model.control_variate_exotics.freeze()
         
         
-        print('epoch:', epoch)
         
         batch_size = config["batch_size"]
         
@@ -176,17 +195,15 @@ def train_nsde(model, z_test, config):
                 init_time = time.time()
                 loss.backward()
                 time_backward = time.time() - init_time
-                print('iteration {}, sum_variance={:.4f}, time_forward={:.4f}, time_backward={:.4f}'.format(itercount, loss.item(), time_forward, time_backward))
                 nn.utils.clip_grad_norm_(list(model.control_variate_vanilla.parameters()) + list(model.control_variate_exotics.parameters()), 3)
                 optimizer_CV.step()
             else:
-                MSE = loss_fn(pred, target_mat_T)
-                loss = MSE
+                Wass = loss_fn(pred, target_mat_T)
+                loss = Wass
                 init_time = time.time()
                 loss.backward()
                 nn.utils.clip_grad_norm_(params_SDE, 5)
                 time_backward = time.time() - init_time
-                print('iteration {}, loss={:4.2e}, exotic price={:.4f}, time_forward={:.4f}, time_backward={:.4f}'.format(itercount, loss.item(), exotic_option_price, time_forward, time_backward))
                 optimizer_SDE.step()
         
         scheduler_SDE.step() 
@@ -194,22 +211,25 @@ def train_nsde(model, z_test, config):
         #evaluate and print RMSE validation error at the start of each epoch
         with torch.no_grad():
             pred, _, exotic_option_price, exotic_price_mean, exotic_price_var, error = model(S0, z_test, z_test.shape[0], T, period_length=16)
-            print("pred:",pred)
-            print("target", target_mat_T)
+        
         
         # Exotic option price hedging strategy error
         error_hedge = error
         error_hedge_2 = torch.mean(error_hedge**2)
+        errors_hedge_2[epoch] = error_hedge_2
         error_hedge_inf = torch.max(torch.abs(error_hedge))
+        errors_hedge_inf[epoch] = error_hedge_inf
         with open("error_hedge.txt","a") as f:
             f.write("{},{:.4f},{:.4f},{:.4f}\n".format(epoch,error_hedge_2, error_hedge_inf,exotic_price_var.item()))
         if (epoch+1)%100 == 0:
             torch.save(error_hedge, "error_hedge.pth.tar")
         
         # Evaluation Error of calibration to vanilla option prices
-        MSE = loss_fn(pred, target_mat_T)
-        loss_val=torch.sqrt(MSE)
-        print('epoch={}, loss={:.4f}'.format(epoch, loss_val.item()))
+        if loss_calibration=='Wass':
+            loss_val= loss_fn(pred, target_mat_T)
+        else:
+            loss_val= torch.sqrt(loss_fn(pred,target_mat_T))
+
         with open("log_eval.txt","a") as f:
             f.write('{},{:.4e}\n'.format(epoch, loss_val.item()))
         
@@ -217,7 +237,6 @@ def train_nsde(model, z_test, config):
         if loss_val < loss_val_best:
              model_best = model
              loss_val_best=loss_val
-             print('loss_val_best', loss_val_best)
              type_bound = "no"#"lower" if args.lower_bound else "upper"
              filename = "Neural_SDE_exp{}_{}bound_maturity{}_AugmentedLagrangian.pth.tar".format(args.experiment,type_bound,T)
              checkpoint = {"state_dict":model.state_dict(),
@@ -231,9 +250,20 @@ def train_nsde(model, z_test, config):
 
         if loss_val.item() < 2e-5:
             break
+
+    n=range(1,n_epochs+1)
+    print('\n Loss for calibration of NSDE coefficient:', loss_calibration, '\n Activation fonction: ' ,model.activation)
+    plt.figure(figsize=(3, 5))  
+    plt.plot(n, errors_hedge_2.cpu().numpy(), label="Error Hedge 2")
+    plt.plot(n, errors_hedge_inf.cpu().numpy(), label="Error Hedge Inf")
+    plt.xlabel("Nombre d'epochs")
+    plt.ylabel("Erreur")
+    plt.legend()
+    plt.grid(True)
+    plt.savefig("plot2.png", dpi=300)
+    plt.show()
+
     return model_best
-
-
 
 
 if __name__ == '__main__':
@@ -266,7 +296,8 @@ if __name__ == '__main__':
     # Neural SDE
     S0 = 1
     rate = 0.025 # risk-free rate
-    model = Net_LSV(dim=1, timegrid=timegrid, strikes_call=strikes_call, n_layers=args.n_layers, vNetWidth=args.vNetWidth, device=device, n_maturities=n_maturities, maturities=maturities, rate=rate)
+    activation = 'silu' #DEFINIR: relu, tanh ou silu
+    model = Net_LSV(dim=1, timegrid=timegrid, strikes_call=strikes_call, n_layers=args.n_layers, vNetWidth=args.vNetWidth, device=device, n_maturities=n_maturities, maturities=maturities, rate=rate, activation=activation)
     model.to(device)
     model.apply(init_weights)
     
@@ -280,7 +311,7 @@ if __name__ == '__main__':
         f.write("epoch,error_hedge_2,error_hedge_inf\n")
 
     CONFIG = {"batch_size":40000,
-            "n_epochs":1000,
+            "n_epochs":20,
             "maturities":maturities,
             "n_maturities":n_maturities,
             "strikes_call":strikes_call,
@@ -288,5 +319,8 @@ if __name__ == '__main__':
             "n_steps":n_steps,
             "target_data":data}
     
+
     model = train_nsde(model, z_test, CONFIG)
+    model = train_nsde(model, z_test, CONFIG,loss_calibration='Wass') #loss_calibration='Wass' sinon par defaut MSE #init='kaiming' sinon par defaut xavier
+
 
